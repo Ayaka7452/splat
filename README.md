@@ -1,7 +1,8 @@
-# Gaussian Splat Viewer（魔改版）
+# Gaussian Splat Viewer
 
 基于 [antimatter15/splat](https://github.com/antimatter15/splat)（MIT License）修改的
 WebGL 3D 高斯泼溅查看器。无需构建步骤、无外部依赖，直接打开 `index.html` 即可使用。
+本版本主要面向本地离线查看功能，支持选择本地文件进行查看。
 
 ## 新增功能
 
