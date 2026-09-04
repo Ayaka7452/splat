@@ -1055,29 +1055,42 @@ async function main() {
         ];
         return invert4(camToWorld);
     };
-    // Orbit the camera around the model center: aim at the center first, then
-    // rotate around it by (yaw, pitch). Returns the new camera-to-world matrix.
+    // Orbit the camera around the model center WITHOUT snapping. The camera
+    // frame is rotated in place (turntable), then the camera position is
+    // swung around the center by the same world-space rotation. This keeps
+    // the pivot-to-camera vector and the view direction consistent, so the
+    // model center stays pinned to its current screen position: with no
+    // panning the camera keeps facing the center as before, and after moving
+    // the camera the orbit simply continues from the moved position instead
+    // of snapping back to face the center.
     const orbit = (camToWorld, yaw, pitch) => {
-        const camPos = [
-            camToWorld[12],
-            camToWorld[13],
-            camToWorld[14],
-        ];
-        const upHint = [camToWorld[4], camToWorld[5], camToWorld[6]];
-        const d = Math.max(
-            Math.hypot(
-                camPos[0] - modelCenter[0],
-                camPos[1] - modelCenter[1],
-                camPos[2] - modelCenter[2],
-            ),
-            0.5,
+        // 1) Rotate the camera frame in place around its own axes. A pure
+        //    right-multiplied rotation leaves the position column untouched.
+        const turned = rotate4(
+            rotate4(camToWorld, yaw, 0, 1, 0),
+            pitch,
+            1,
+            0,
+            0,
         );
-        let m = invert4(lookAtMatrix(camPos, modelCenter, upHint));
-        m = translate4(m, 0, 0, d);
-        m = rotate4(m, yaw, 0, 1, 0);
-        m = rotate4(m, pitch, 1, 0, 0);
-        m = translate4(m, 0, 0, -d);
-        return m;
+        // 2) World rotation that carries the old camera frame onto the
+        //    turned one: R = R_new * R_old^-1. Applied about the model
+        //    center it moves the camera position along the matching arc.
+        const R0 = camToWorld.slice();
+        R0[12] = R0[13] = R0[14] = 0;
+        const R1 = turned.slice();
+        R1[12] = R1[13] = R1[14] = 0;
+        const worldRot = multiply4(R1, invert4(R0));
+        const px = camToWorld[12] - modelCenter[0];
+        const py = camToWorld[13] - modelCenter[1];
+        const pz = camToWorld[14] - modelCenter[2];
+        turned[12] =
+            worldRot[0] * px + worldRot[4] * py + worldRot[8] * pz + modelCenter[0];
+        turned[13] =
+            worldRot[1] * px + worldRot[5] * py + worldRot[9] * pz + modelCenter[1];
+        turned[14] =
+            worldRot[2] * px + worldRot[6] * py + worldRot[10] * pz + modelCenter[2];
+        return turned;
     };
     // Re-aim the current camera at the model center without moving it.
     const aimAtModel = () => {
